@@ -1,0 +1,122 @@
+#!/bin/bash
+
+# Scripts for helping with Blockly++ development.
+# Run envsetup.sh to set the path for this script, then
+# use the commands with bgit <command>
+
+function start {
+  if [ "$1" != "" ]; then
+    git checkout -b $1
+  else
+    echo "Usage: bgit start <branch name>"
+  fi
+}
+
+function close {
+  if [ "$BLOCKLY_INIT" != true ]; then
+    echo "Must run envsetup.sh before closing a branch!"
+    return
+  fi
+
+  branch="$(git rev-parse --abbrev-ref HEAD)"
+  if [ "$branch" = "master" ]; then
+    echo "Cannot close the master branch"
+    return
+  fi
+
+  while true; do
+    read -p "This will delete the remote and local branches for $branch. Continue? (y/n):" yn
+    case $yn in
+      [Yy]* ) break;;
+      [Nn]* ) return;;
+      * ) echo "Please type y or n";;
+    esac
+  done
+  rem_branch="$BLOCKLY_USER-$branch"
+  git push origin :$rem_branch
+  git checkout master
+  git branch -D $branch
+}
+
+function push {
+  if [ "$BLOCKLY_INIT" != true ]; then
+    echo "Must run envsetup.sh before pushing commits!"
+    return
+  fi
+
+  args=""
+
+  while [ "$1" != "" ]; do
+    case $1 in
+      -f | --force )  args="$args $1";;
+      * )             echo "unknown arg $1";;
+    esac
+    shift
+  done
+
+  branch="$(git rev-parse --abbrev-ref HEAD)"
+  rem_branch="$BLOCKLY_USER-$branch"
+  git push$args origin "$branch:$rem_branch"
+  echo "Pushed change to $rem_branch. Add a reviewer on the website."
+}
+
+#NOTE: pull will only work after you've created the branch with push
+function pull {
+  if [ "$BLOCKLY_INIT" != true ]; then
+    echo "Must run envsetup.sh before pulling!"
+    return
+  fi
+  branch="$(git rev-parse --abbrev-ref HEAD)"
+  if [ "$branch" = "master" ]; then
+    rem_branch="master"
+  else
+    rem_branch="$BLOCKLY_USER-$branch"
+  fi
+  git pull origin $rem_branch
+}
+
+#Rebase the current branch on to master
+function rebase {
+  git pull origin master
+  # Get the current branch name
+  branch="$(git rev-parse --abbrev-ref HEAD)"
+  # Get the base CL where our local changes diverged from master
+  cl="$(git merge-base $branch master)"
+  args=""
+
+  while [ "$1" != "" ]; do
+    case $1 in
+      -i | --interactive )  args="$args $1";;
+      * )                   echo "unknown arg $1";;
+    esac
+    shift
+  done
+
+  echo "Rebasing onto $cl with args $args"
+  git rebase$args $cl
+}
+
+function help {
+  echo "Available commands are:"
+  echo "bgit start <branch> # Start a new local branch."
+  echo "bgit close # Delete the current branch on GitHub and locally"
+  echo "bgit push # Push the current branch to GitHub. Creates a remote branch if needed."
+  echo "bgit pull # Pull any changes to the current branch from GitHub"
+  echo "bgit rebase # Rebase your current branch on to master"
+}
+
+if [ "$1" = "" ]; then
+  help
+  return
+else
+  command=$1
+  shift
+  case $command in
+    start )   start $@;;
+    close )   close $@;;
+    push )    push $@;;
+    pull )    pull $@;;
+    rebase )  rebase $@;;
+    *)        help;;
+  esac
+fi
