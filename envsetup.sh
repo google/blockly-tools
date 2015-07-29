@@ -2,6 +2,8 @@
 
 # Initialization script for setting up the dev environment for Blockly.
 # This will set up the bgit command as well.
+#
+# To run use "source tools/envsetup.sh"
 
 if [ ! -d ".git" ]; then
   echo "Must call from the root git directory!"
@@ -21,7 +23,6 @@ if [ "$BLOCKLY_USER" = "" ]; then
       break
     fi
   done
-  break
 else
   echo "Username is $BLOCKLY_USER. To update, use 'export BLOCKLY_USER=<new user>'."
 fi
