@@ -107,7 +107,6 @@ function help {
 
 if [ "$1" = "" ]; then
   help
-  return
 else
   command=$1
   shift
