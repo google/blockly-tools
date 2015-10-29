@@ -18,7 +18,7 @@ function close {
     return
   fi
 
-  branch="$(git rev-parse --abbrev-ref HEAD)"
+  local branch="$(git rev-parse --abbrev-ref HEAD)"
   if [ "$branch" = "master" ]; then
     echo "Cannot close the master branch"
     return
@@ -39,7 +39,7 @@ function close {
 }
 
 function run_tests_android() {
-  verbose=""
+  local verbose=""
   while [ "$1" != "" ]; do
     case $1 in
       -v | --verbose ) verbose="true";;
@@ -48,7 +48,7 @@ function run_tests_android() {
     shift
   done
 
-  args=""
+  local args=""
   if test -z $verbose; then
     args="-q"
   fi
@@ -81,7 +81,7 @@ function push {
     return
   fi
 
-  args=""
+  local args=""
 
   while [ "$1" != "" ]; do
     case $1 in
@@ -93,8 +93,8 @@ function push {
 
   run_tests
 
-  branch="$(git rev-parse --abbrev-ref HEAD)"
-  rem_branch="$BLOCKLY_USER-$branch"
+  local branch="$(git rev-parse --abbrev-ref HEAD)"
+  local rem_branch="$BLOCKLY_USER-$branch"
   git push$args origin "$branch:$rem_branch"
   echo "Pushed change to $rem_branch. Add a reviewer on the website."
 }
@@ -105,7 +105,8 @@ function pull {
     echo "Must run envsetup.sh before pulling!"
     return
   fi
-  branch="$(git rev-parse --abbrev-ref HEAD)"
+  local branch="$(git rev-parse --abbrev-ref HEAD)"
+  local rem_branch=""
   if [ "$branch" = "master" ]; then
     rem_branch="master"
   else
@@ -118,10 +119,10 @@ function pull {
 function rebase {
   git pull origin master:master
   # Get the current branch name
-  branch="$(git rev-parse --abbrev-ref HEAD)"
+  local branch="$(git rev-parse --abbrev-ref HEAD)"
   # Get the base CL where our local changes diverged from master
-  cl="$(git merge-base $branch master)"
-  args=""
+  local cl="$(git merge-base $branch master)"
+  local args=""
 
   while [ "$1" != "" ]; do
     case $1 in
