@@ -38,6 +38,43 @@ function close {
   git branch -D $branch
 }
 
+function run_tests_android() {
+  verbose=""
+  while [ "$1" != "" ]; do
+    case $1 in
+      -v | --verbose ) verbose="true";;
+      * )             echo "unknown arg $1";;
+    esac
+    shift
+  done
+
+  args=""
+  if test -z $verbose; then
+    args="-q"
+  fi
+
+  echo -n "Running tests... "
+
+  pushd android/Blockly/ >& /dev/null
+
+  if ! ./gradlew $args cC; then
+    echo "FAILED - ABORTING"
+    popd >& /dev/null
+    exit 1
+  fi
+
+  echo "SUCCESS"
+  popd >& /dev/null
+}
+
+function run_tests() {
+  if [ $(uname) == "Linux" ]; then
+    run_tests_android $*
+  else
+    echo "Tests not yet supported on this platform."
+  fi
+}
+
 function push {
   if [ "$BLOCKLY_INIT" != true ]; then
     echo "Must run envsetup.sh before pushing commits!"
@@ -53,6 +90,8 @@ function push {
     esac
     shift
   done
+
+  run_tests
 
   branch="$(git rev-parse --abbrev-ref HEAD)"
   rem_branch="$BLOCKLY_USER-$branch"
@@ -116,6 +155,7 @@ else
     push )    push $@;;
     pull )    pull $@;;
     rebase )  rebase $@;;
+    test)     run_tests $@;;
     *)        help;;
   esac
 fi
