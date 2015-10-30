@@ -82,16 +82,20 @@ function push {
   fi
 
   local args=""
+  local notest=""
 
   while [ "$1" != "" ]; do
     case $1 in
       -f | --force )  args="$args $1";;
+      --notest )      notest="true";;
       * )             echo "unknown arg $1";;
     esac
     shift
   done
 
-  run_tests
+  if [ -z $notest ]; then
+    run_tests
+  fi
 
   local branch="$(git rev-parse --abbrev-ref HEAD)"
   local rem_branch="$BLOCKLY_USER-$branch"
