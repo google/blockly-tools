@@ -147,6 +147,7 @@ function help {
   echo "bgit push # Push the current branch to GitHub. Creates a remote branch if needed. Add '--notest' to skip pre-push tests."
   echo "bgit pull # Pull any changes to the current branch from GitHub"
   echo "bgit rebase # Rebase your current branch on to master"
+  echo "bgit test # Runs android tests. Only works on linux for now."
 }
 
 if [ "$1" = "" ]; then
