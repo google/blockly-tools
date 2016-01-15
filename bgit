@@ -121,13 +121,10 @@ function pull {
 
 #Rebase the current branch on to master
 function rebase {
+  # Update the master branch
   git pull origin master:master
-  # Get the current branch name
-  local branch="$(git rev-parse --abbrev-ref HEAD)"
-  # Get the base CL where our local changes diverged from master
-  local cl="$(git merge-base $branch master)"
-  local args=""
 
+  local args=""
   while [ "$1" != "" ]; do
     case $1 in
       -i | --interactive )  args="$args $1";;
@@ -136,8 +133,8 @@ function rebase {
     shift
   done
 
-  echo "Rebasing onto $cl with args $args"
-  git rebase$args $cl
+  # Rebase the current branch with args
+  git rebase$args master
 }
 
 function help {
