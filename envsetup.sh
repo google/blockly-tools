@@ -29,3 +29,6 @@ fi
 export BLOCKLY_INIT=true
 
 export PATH="$PATH:$BLOCKLY_ROOT/tools"
+
+# Enables rerere recording of merge resolutions
+git config --global rerere.enabled true
