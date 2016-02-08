@@ -5,8 +5,8 @@
 #
 # To run use "source tools/envsetup.sh"
 
-if [ ! -d ".git" ]; then
-  echo "Must call from the root git directory!"
+if [ ! -d ".repo" ]; then
+  echo "Must call from the root repo directory!"
   return
 fi
 
