@@ -67,16 +67,25 @@ function run_tests_android() {
 }
 
 function run_tests() {
-  if [ $(uname) == "Linux" ]; then
-    run_tests_android $*
+  if [[ $(git config --get remote.origin.url) == *"andBlockly"* ]]; then
+    if [ $(uname) == "Linux" ]; then
+      run_tests_android $*
+    else
+      echo "Tests not yet supported on this platform."
+    fi
   else
-    echo "Tests not yet supported on this platform."
+    echo "Tests not yet supported for non-Android"
   fi
 }
 
 function push {
   if [ "$BLOCKLY_INIT" != true ]; then
     echo "Must run envsetup.sh before pushing commits!"
+    return
+  fi
+
+  if [[ $(git config --get remote.google.url) == *"google/blockly"* ]]; then
+    echo "You are on the public Blockly project. Do not push here."
     return
   fi
 
