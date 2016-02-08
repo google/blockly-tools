@@ -6,7 +6,7 @@
 
 function start {
   if [ "$1" != "" ]; then
-    git checkout -b $1 master
+    repo start $1 .
   else
     echo "Usage: bgit start <branch name>"
   fi
@@ -34,8 +34,7 @@ function close {
   done
   rem_branch="$BLOCKLY_USER-$branch"
   git push origin :$rem_branch
-  git checkout master
-  git branch -D $branch
+  repo abandon $branch
 }
 
 function run_tests_android() {
@@ -68,16 +67,25 @@ function run_tests_android() {
 }
 
 function run_tests() {
-  if [ $(uname) == "Linux" ]; then
-    run_tests_android $*
+  if [[ $(git config --get remote.origin.url) == *"andBlockly"* ]]; then
+    if [ $(uname) == "Linux" ]; then
+      run_tests_android $*
+    else
+      echo "Tests not yet supported on this platform."
+    fi
   else
-    echo "Tests not yet supported on this platform."
+    echo "Tests not yet supported for non-Android"
   fi
 }
 
 function push {
   if [ "$BLOCKLY_INIT" != true ]; then
     echo "Must run envsetup.sh before pushing commits!"
+    return
+  fi
+
+  if [[ $(git config --get remote.google.url) == *"google/blockly"* ]]; then
+    echo "You are on the public Blockly project. Do not push here."
     return
   fi
 
@@ -109,20 +117,13 @@ function pull {
     echo "Must run envsetup.sh before pulling!"
     return
   fi
-  local branch="$(git rev-parse --abbrev-ref HEAD)"
-  local rem_branch=""
-  if [ "$branch" = "master" ]; then
-    rem_branch="master"
-  else
-    rem_branch="$BLOCKLY_USER-$branch"
-  fi
-  git pull origin $rem_branch
+  repo sync .
 }
 
 #Rebase the current branch on to master
 function rebase {
   # Update the master branch
-  git pull origin master:master
+  # git pull origin master:master
 
   local args=""
   while [ "$1" != "" ]; do
@@ -134,7 +135,7 @@ function rebase {
   done
 
   # Rebase the current branch with args
-  git rebase$args master
+  repo rebase$args
 }
 
 function help {
