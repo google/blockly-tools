@@ -67,7 +67,7 @@ function run_tests_android() {
 }
 
 function run_tests() {
-  if [[ $(git config --get remote.origin.url) == *"andBlockly"* ]]; then
+  if [[ $(git config --get remote.origin.url) == *"android"* ]]; then
     if [ $(uname) == "Linux" ]; then
       run_tests_android $*
     else
