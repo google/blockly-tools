@@ -97,7 +97,7 @@ function push {
     return
   fi
 
-  if [[ $(git config --get remote.google.url) == *"google/blockly"* ]]; then
+  if [[ $(git config --get remote.google.url) == *"google/blockly" ]]; then
     echo "You are on the public Blockly project. Do not push here."
     return
   fi
