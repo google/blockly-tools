@@ -81,11 +81,7 @@ function run_tests_android() {
 
 function run_tests() {
   if [[ $(git config --get remote.origin.url) == *"android"* ]]; then
-    if [ $(uname) == "Linux" ]; then
-      run_tests_android $*
-    else
-      echo "Tests not yet supported on this platform."
-    fi
+    run_tests_android $*
   else
     echo "Tests not yet supported for non-Android"
   fi
