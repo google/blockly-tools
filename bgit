@@ -36,6 +36,10 @@ function close {
     echo "Cannot close the master branch"
     return
   fi
+  if [ "$branch" = "HEAD" ]; then
+    echo "Not on a branch"
+    return
+  fi
 
   while true; do
     read -p "This will delete the remote and local branches for $branch. Continue? (y/n):" yn
@@ -84,6 +88,29 @@ function run_tests() {
     run_tests_android $*
   else
     echo "Tests not yet supported for non-Android"
+  fi
+}
+
+function run_lint_android() {
+  echo -n "Running linter... "
+
+  pushd android/Blockly/ >& /dev/null
+
+  if ! ./gradlew check; then
+    echo "FAILED - ABORTING"
+    popd >& /dev/null
+    exit 1
+  fi
+
+  echo "SUCCESS"
+  popd >& /dev/null
+}
+
+function run_lint() {
+  if [[ $(git config --get remote.origin.url) == *"android"* ]]; then
+    run_lint_android $*
+  else
+    echo "Lint not yet supported for non-Android"
   fi
 }
 
@@ -154,7 +181,8 @@ function help {
   echo "bgit push # Push the current branch to GitHub. Creates a remote branch if needed. Add '--notest' to skip pre-push tests."
   echo "bgit pull # Pull any changes to the current branch from GitHub"
   echo "bgit rebase # Rebase your current branch on to master"
-  echo "bgit test # Runs android tests. Only works on linux for now."
+  echo "bgit test # Runs android tests. Non-android tests are not supported yet."
+  echo "bgit lint # Runs android linter. Non-android linting is not supported yet."
 }
 
 if [ "$1" = "" ]; then
@@ -169,6 +197,7 @@ else
     pull )    pull $@;;
     rebase )  rebase $@;;
     test)     run_tests $@;;
+    lint)     run_lint $@;;
     *)        help;;
   esac
 fi
