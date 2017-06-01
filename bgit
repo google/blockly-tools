@@ -114,14 +114,34 @@ function run_lint() {
   fi
 }
 
-function clone_webfork() {
+function clone_fork() {
   if [ "$BLOCKLY_INIT" != true ]; then
     echo "Must run envsetup.sh before trying to clone your web fork."
     return
   fi
 
-  fork_repo="https://github.com/$BLOCKLY_USER/blockly"
-  fork_local_dir="$BLOCKLY_ROOT/webfork"
+  fork_repo_base="https://github.com/$BLOCKLY_USER/blockly"
+  fork_repo_ext=""
+  fork_project="$1"
+
+  if [ "$fork_project" = "" ]; then
+    echo "Must specify one of 'web', 'android', 'ios', or 'devtools' to clone a fork of."
+    return;
+  elif [ "$fork_project" = "android" ]; then
+    fork_repo_ext="-android"
+  elif [ "$fork_project" = "ios" ]; then
+    fork_repo_ext="-ios"
+  elif [ "$fork_project" = "devtools" ]; then
+    fork_repo_ext="-devtools"
+  elif [ "$fork_project" != "web" ]; then
+    # 'web' is a valid value, but we don't do anything for it
+    # which is why we just check it at the end.
+    echo "Must specify one of 'web', 'android', 'ios', or 'devtools' to clone a fork of."
+    return;
+  fi
+
+  fork_repo="$fork_repo_base$fork_repo_ext"
+  fork_local_dir="$BLOCKLY_ROOT/${fork_project}fork"
   if [ -d "$fork_local_dir" ]; then
     echo "webfork directory already exists at $fork_local_dir. Aborting."
     return
@@ -134,44 +154,71 @@ function clone_webfork() {
   fi
 
   cd "$fork_local_dir"
-  git remote add -t master -t develop upstream https://github.com/google/blockly
+  git remote add -t master -t develop upstream "https://github.com/google/blockly$fork_repo_ext"
 }
 
-function update_webfork() {
+# Verifies that you are currently in a forked git project with
+# no uncommitted changes
+function verify_fork() {
   if [ "$BLOCKLY_INIT" != true ]; then
     echo "Must run envsetup.sh before updating your web fork."
-    return
+    return 1
   fi
 
-  fork_local_dir="$BLOCKLY_ROOT/webfork"
-  if [ ! -d "$fork_local_dir" ]; then
-    echo "Missing forked directory. Run 'bgit webfork' first to clone the repo."
-    return
+  # Check that we're in a forked repo
+  if [ $(git remote -v | grep -i origin.*$BLOCKLY_USER | wc -l) = "0" ]; then
+    echo "bgit fupdate must be run from a git project with your fork as origin."
+    return 1
   fi
 
-  cd "$fork_local_dir"
-  git fetch upstream
-  git checkout master
-  git pull upstream master
-  git push origin master
+  # Check that google is the upstream repo
+  if [ $(git remote -v | grep -i upstream.*google | wc -l) = "0" ]; then
+    echo "google's project must be configured as upstream. Did you use 'bgit fork' to clone the repo?"
+    return 1
+  fi
 
-  git branch -f upstream-develop remotes/upstream/develop
-  git checkout upstream-develop
-  git pull upstream develop
-  git push origin develop
-  git checkout master
-  git branch -d upstream-develop
+  # Check that there's nothing to commit that will block checkouts
+  if [ $(git status | grep -i "working tree clean" | wc -l) = "0" ]; then
+    echo "You have uncommited changes. Please commit or revert your changes before updating."
+    return 1
+  fi
+
+  #ensure there's a develop and master branch locally
+  if [ $(git branch | grep " develop$" | wc -l) = "0" ]; then
+    git branch -f develop
+  fi
+  if [ $(git branch | grep " master$" | wc -l) = "0" ]; then
+    git branch -f master
+  fi
+
+  return 0
 }
 
-function branch_webfork() {
-  if [ "$BLOCKLY_INIT" != true ]; then
-    echo "Must run envsetup.sh before branching your web fork."
+#
+function update_fork() {
+  verify_fork
+  retval=$?
+
+  if [ $retval != 0 ]; then
     return
   fi
 
-  fork_local_dir="$BLOCKLY_ROOT/webfork"
-  if [ ! -d "$fork_local_dir" ]; then
-    echo "Missing forked directory. Run 'bgit webfork' first to clone the repo."
+  git fetch upstream
+
+  git checkout master
+  git pull upstream master
+  git push origin HEAD:master
+
+  git checkout develop
+  git pull upstream develop
+  git push origin HEAD:develop
+}
+
+function branch_fork() {
+  verify_fork
+  retval=$?
+
+  if [ $retval != 0 ]; then
     return
   fi
 
@@ -254,9 +301,9 @@ function help {
   echo "bgit rebase # Rebase your current branch on to master"
   echo "bgit test # Runs android tests. Non-android tests are not supported yet."
   echo "bgit lint # Runs android linter. Non-android linting is not supported yet."
-  echo "bgit webfork # Clones an existing fork of the web project on your account."
-  echo "bgit webupdate # Updates the forked master and develop branches for web."
-  echo "bgit webbranch <branchname> # Create a new branch in your webfork based off develop."
+  echo "bgit fork <project> # Clones an existing fork of the web project on your account. Project must be one of 'web', 'android', 'ios', 'devtools'"
+  echo "bgit fupdate # Updates the master and develop branches for the current project. Must be in a forked git repo."
+  echo "bgit fbranch <branchname> # Create a new branch in your forked repo based off develop."
 }
 
 if [ "$1" = "" ]; then
@@ -272,9 +319,9 @@ else
     rebase )  	rebase $@;;
     test)     	run_tests $@;;
     lint)     	run_lint $@;;
-    webfork)  	clone_webfork $@;;
-    webupdate)	update_webfork $@;;
-    webbranch)  branch_webfork $@;;
+    fork)  	clone_fork $@;;
+    fupdate)	update_fork $@;;
+    fbranch)  	branch_fork $@;;
     *)        	help;;
   esac
 fi
