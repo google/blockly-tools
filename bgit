@@ -301,7 +301,7 @@ function help {
   echo "bgit rebase # Rebase your current branch on to master"
   echo "bgit test # Runs android tests. Non-android tests are not supported yet."
   echo "bgit lint # Runs android linter. Non-android linting is not supported yet."
-  echo "bgit fork <project> # Clones an existing fork of the web project on your account. Project must be one of 'web', 'android', 'ios', 'devtools'"
+  echo "bgit fclone <project> # Clones an existing fork of the web project on your account. Project must be one of 'web', 'android', 'ios', 'devtools'"
   echo "bgit fupdate # Updates the master and develop branches for the current project. Must be in a forked git repo."
   echo "bgit fbranch <branchname> # Create a new branch in your forked repo based off develop."
 }
@@ -319,7 +319,7 @@ else
     rebase )  	rebase $@;;
     test)     	run_tests $@;;
     lint)     	run_lint $@;;
-    fork)  	clone_fork $@;;
+    fclone)  	clone_fork $@;;
     fupdate)	update_fork $@;;
     fbranch)  	branch_fork $@;;
     *)        	help;;
