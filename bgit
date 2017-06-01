@@ -163,6 +163,28 @@ function update_webfork() {
   git branch -d upstream-develop
 }
 
+function branch_webfork() {
+  if [ "$BLOCKLY_INIT" != true ]; then
+    echo "Must run envsetup.sh before branching your web fork."
+    return
+  fi
+
+  fork_local_dir="$BLOCKLY_ROOT/webfork"
+  if [ ! -d "$fork_local_dir" ]; then
+    echo "Missing forked directory. Run 'bgit webfork' first to clone the repo."
+    return
+  fi
+
+  newbranch="$1"
+  if [ "$newbranch" = "" ]; then
+    echo "Missing branch name. Syntax is 'bgit webbranch <branchname>'"
+    return;
+  fi
+
+  git branch -f "$newbranch" remotes/origin/develop
+  git checkout "$newbranch"
+}
+
 function push {
   if [ "$BLOCKLY_INIT" != true ]; then
     echo "Must run envsetup.sh before pushing commits!"
@@ -234,6 +256,7 @@ function help {
   echo "bgit lint # Runs android linter. Non-android linting is not supported yet."
   echo "bgit webfork # Clones an existing fork of the web project on your account."
   echo "bgit webupdate # Updates the forked master and develop branches for web."
+  echo "bgit webbranch <branchname> # Create a new branch in your webfork based off develop."
 }
 
 if [ "$1" = "" ]; then
@@ -251,6 +274,7 @@ else
     lint)     	run_lint $@;;
     webfork)  	clone_webfork $@;;
     webupdate)	update_webfork $@;;
+    webbranch)  branch_webfork $@;;
     *)        	help;;
   esac
 fi
