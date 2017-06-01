@@ -114,6 +114,55 @@ function run_lint() {
   fi
 }
 
+function clone_webfork() {
+  if [ "$BLOCKLY_INIT" != true ]; then
+    echo "Must run envsetup.sh before trying to clone your web fork."
+    return
+  fi
+
+  fork_repo="https://github.com/$BLOCKLY_USER/blockly"
+  fork_local_dir="$BLOCKLY_ROOT/webfork"
+  if [ -d "$fork_local_dir" ]; then
+    echo "webfork directory already exists at $fork_local_dir. Aborting."
+    return
+  fi
+  git clone "$fork_repo" "$fork_local_dir"
+
+  if [ ! -d "$fork_local_dir" ]; then
+    echo "Failed to clone repo. Ensure you have a fork of blockly on your GitHub account."
+    return
+  fi
+
+  cd "$fork_local_dir"
+  git remote add -t master -t develop upstream https://github.com/google/blockly
+}
+
+function update_webfork() {
+  if [ "$BLOCKLY_INIT" != true ]; then
+    echo "Must run envsetup.sh before updating your web fork."
+    return
+  fi
+
+  fork_local_dir="$BLOCKLY_ROOT/webfork"
+  if [ ! -d "$fork_local_dir" ]; then
+    echo "Missing forked directory. Run 'bgit webfork' first to clone the repo."
+    return
+  fi
+
+  cd "$fork_local_dir"
+  git fetch upstream
+  git checkout master
+  git pull upstream master
+  git push origin master
+
+  git branch -f upstream-develop remotes/upstream/develop
+  git checkout upstream-develop
+  git pull upstream develop
+  git push origin develop
+  git checkout master
+  git branch -d upstream-develop
+}
+
 function push {
   if [ "$BLOCKLY_INIT" != true ]; then
     echo "Must run envsetup.sh before pushing commits!"
@@ -183,6 +232,8 @@ function help {
   echo "bgit rebase # Rebase your current branch on to master"
   echo "bgit test # Runs android tests. Non-android tests are not supported yet."
   echo "bgit lint # Runs android linter. Non-android linting is not supported yet."
+  echo "bgit webfork # Clones an existing fork of the web project on your account."
+  echo "bgit webupdate # Updates the forked master and develop branches for web."
 }
 
 if [ "$1" = "" ]; then
@@ -191,13 +242,15 @@ else
   command=$1
   shift
   case $command in
-    start )   start $@;;
-    close )   close $@;;
-    push )    push $@;;
-    pull )    pull $@;;
-    rebase )  rebase $@;;
-    test)     run_tests $@;;
-    lint)     run_lint $@;;
-    *)        help;;
+    start )   	start $@;;
+    close )   	close $@;;
+    push )    	push $@;;
+    pull )    	pull $@;;
+    rebase )  	rebase $@;;
+    test)     	run_tests $@;;
+    lint)     	run_lint $@;;
+    webfork)  	clone_webfork $@;;
+    webupdate)	update_webfork $@;;
+    *)        	help;;
   esac
 fi
