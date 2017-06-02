@@ -141,7 +141,7 @@ function clone_fork() {
   fi
 
   fork_repo="$fork_repo_base$fork_repo_ext"
-  fork_local_dir="$BLOCKLY_ROOT/${fork_project}fork"
+  fork_local_dir="$BLOCKLY_ROOT/${fork_project}-$BLOCKLY_USER"
   if [ -d "$fork_local_dir" ]; then
     echo "webfork directory already exists at $fork_local_dir. Aborting."
     return
@@ -166,6 +166,7 @@ function verify_fork() {
   fi
 
   # Check that we're in a forked repo
+  # TODO: Allow user to change 'origin' and $BLOCKLY_USER to something else
   if [ $(git remote -v | grep -i origin.*$BLOCKLY_USER | wc -l) = "0" ]; then
     echo "bgit fupdate must be run from a git project with your fork as origin."
     return 1
