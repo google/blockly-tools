@@ -186,10 +186,10 @@ function verify_fork() {
 
   #ensure there's a develop and master branch locally
   if [ $(git branch | grep " develop$" | wc -l) = "0" ]; then
-    git branch -f develop
+    git branch -f develop remotes/origin/develop
   fi
   if [ $(git branch | grep " master$" | wc -l) = "0" ]; then
-    git branch -f master
+    git branch -f master remotes/origin/master
   fi
 
   return 0
