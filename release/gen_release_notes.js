@@ -40,8 +40,9 @@ function genBlocklyIssueNotes (startDate, endDate) {
       var issuesList = '';
       for (var i = 0; i < issuesJson.items.length; i++) {
         var item = issuesJson.items[i];
-        issuesList += item.title + ' (https://github.com/google/blockly/issues/'
-            + item.number + ')\n<br>';
+        var link = '<a href="https://github.com/google/blockly/issues/'
+            + item.number + '">#' + item.number + '</a>';
+        issuesList += item.title + ' (' + link + ')\n<br>';
       }
       document.getElementById("issues").innerHTML = issuesList;
     }
@@ -62,8 +63,9 @@ function genBlocklyPrNotes (startDate, endDate) {
       var prList = '';
       for (var i = 0; i < prJson.items.length; i++) {
         var item = prJson.items[i];
-        prList += item.title + ' (https://github.com/google/blockly/pull/'
-            + item.number + ')\n<br>';
+        var link = '<a href="https://github.com/google/blockly/pull/'
+            + item.number + '">#' + item.number + '</a>';
+        prList += item.title + ' (' + link + ')\n<br>';
       }
       document.getElementById("pull-requests").innerHTML = prList;
     }
