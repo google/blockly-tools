@@ -14,177 +14,216 @@
 # limitations under the License.
 
 # Scripts for helping with Blockly++ development.
-# Run envsetup.sh to set the path for this script, then
-# use the commands with bgit <command>
+# Run source ./tools/bgit setup [-a --append] to set the path and environment
+# variables for this script, then use the commands with bgit <command>
+#
+# Assumes the following directory structure (NOTE: bgit fclone will create
+# the web-<github username> directory for you):
+#   blockly/
+#                 tools/bgit
+#                 web-<github username>/appengine/...
 
-function start {
-  if [ "$1" != "" ]; then
-    repo start $1 .
-  else
-    echo "Usage: bgit start <branch name>"
-  fi
+COLOR_NONE="\e[0m"
+GREEN="\033[0;32m"
+BLUE="\033[0;34m"
+ORANGE="\033[0;33m"
+RED="\033[0;31m"
+
+reenter_instructions() {
+  echo -e  "${ORANGE}$*${COLOR_NONE}" >&2
 }
 
-function close {
-  if [ "$BLOCKLY_INIT" != true ]; then
-    echo "Must run envsetup.sh before closing a branch!"
-    return
-  fi
-
-  local branch="$(git rev-parse --abbrev-ref HEAD)"
-  if [ "$branch" = "master" ]; then
-    echo "Cannot close the master branch"
-    return
-  fi
-  if [ "$branch" = "HEAD" ]; then
-    echo "Not on a branch"
-    return
-  fi
-
-  while true; do
-    read -p "This will delete the remote and local branches for $branch. Continue? (y/n):" yn
-    case $yn in
-      [Yy]* ) break;;
-      [Nn]* ) return;;
-      * ) echo "Please type y or n";;
-    esac
-  done
-  rem_branch="$BLOCKLY_USER-$branch"
-  git push origin :$rem_branch
-  repo abandon $branch
+success() {
+  echo -e  "${GREEN}[SUCCESS]:${COLOR_NONE} $*" >&2
 }
 
-function run_tests_android() {
-  local verbose=""
-  while [ "$1" != "" ]; do
+inf() {
+  echo -e  "${BLUE}[INFO]:${COLOR_NONE} $*" >&2
+}
+
+warn() {
+  echo -e  "${ORANGE}[WARN]:${COLOR_NONE} $*" >&2
+}
+
+err() {
+  echo -e  "${RED}[ERROR]:${COLOR_NONE} $*" >&2
+}
+
+#######################################
+# Sets up global variables and appends directory of tool to path for the curent
+# shell and all proccesses started from the current shell.
+# Globals:
+#   BLOCKLY_ROOT
+#   BLOCKLY_USER
+#   BLOCKLY_INIT
+# Arguments:
+#   Whether to set up environment variables permanently for all future bash
+#   sessions by appending to .bashrc file.
+#######################################
+source_setup() {
+  if [[ ! -d "tools" ]]; then
+    err "Setup must be run in root directory (containing tools directory). Aborting."
+    return 1
+  fi
+
+  if [[ "$0" == "$BASH_SOURCE" ]]; then    
+    err "Setup must be run sourced (i.e. with source ./tools/bgit setup)"
+    return 1
+  fi
+
+  local append_bashrc=false
+  while [[ "$1" != "" ]]; do
     case $1 in
-      -v | --verbose ) verbose="true";;
-      * )             echo "unknown arg $1";;
+      -a | --append )  append_bashrc=true;;
+      * )             warn "unknown arg $1";;
     esac
     shift
   done
 
-  local args=""
-  if test -z $verbose; then
-    args="-q"
+  if [[ "${append_bashrc}" == true ]] && grep -q "export BLOCKLY_INIT=" ~/.bashrc ; then
+    # Do not append environment variables again.
+    err "BLOCKLY_INIT already set in .bashrc. You must manually edit .bashrc."
+    return 1
   fi
+  
+  chmod u+x tools/bgit
+  export BLOCKLY_ROOT="$(pwd)"
+  if [ "$BLOCKLY_USER" = "" ]; then
+    while true; do
+      read -p "GitHub username:" user
+      if [ "$user" == "" ]; then
+        reenter_instructions "Username may not be empty"
+      else
+        success "Set your username to $user."
+        export BLOCKLY_USER=$user
+        break
+      fi
+    done
+  else
+    inf "Username is ${BLOCKLY_USER}. To update, use 'export BLOCKLY_USER=<new user>'."
+  fi
+  # Appends Blockly root directory to path if not already.
+  [[ ":$PATH:" != *":${BLOCKLY_ROOT}/tools:"* ]] && export PATH="${PATH}:${BLOCKLY_ROOT}/tools"
+  export BLOCKLY_INIT=true
+  # Enables rerere recording of merge resolutions
+  git config --global rerere.enabled true
 
-  echo -n "Running tests... "
+  if [[ "${append_bashrc}" == true ]] ; then
+    echo "" >> ~/.bashrc 
+    echo "# Blockly tools setup" >> ~/.bashrc 
+    echo "export BLOCKLY_ROOT=\"${BLOCKLY_ROOT}\"" >> ~/.bashrc 
+    echo "export BLOCKLY_USER=\"${BLOCKLY_USER}\"" >> ~/.bashrc 
+    echo "export BLOCKLY_INIT=true" >> ~/.bashrc
+    echo "# Appends Blockly root directory to path if not already." >> ~/.bashrc 
+    echo '[[ ":$PATH:" != *":${BLOCKLY_ROOT}/tools:"* ]] && export PATH="${PATH}:${BLOCKLY_ROOT}/tools"' >> ~/.bashrc 
+    success "Updated .bashrc file"
+  fi
+}
 
-  pushd android/Blockly/ >& /dev/null
+#######################################
+# Closes remote and local branch, changing current branch to develop.
+#
+# Arguments:
+#   None
+#######################################
+close() {
+  local cur_branch="$(git rev-parse --abbrev-ref HEAD)"
 
-  if ! ./gradlew $args cC; then
-    echo "FAILED - ABORTING"
-    popd >& /dev/null
+  if [[ "${cur_branch}" == "master" ]]; then
+    err "Cannot close the master branch"
+    exit 1
+  fi
+  if [[ "${cur_branch}" == "develop" ]]; then
+    err "Cannot close the develop branch"
+    exit 1
+  fi
+  if [[ "${cur_branch}" == "HEAD" ]]; then
+    err "Not on a branch"
     exit 1
   fi
 
-  echo "SUCCESS"
-  popd >& /dev/null
+  while true; do
+    read -p "This will delete the remote and local branches for ${cur_branch}. Continue? (y/n): " yn
+    case $yn in
+      [Yy]* ) break;;
+      [Nn]* ) exit 0;;
+      * ) reenter_instructions "Please type y or n";;
+    esac
+  done
+
+  git push origin :${cur_branch}
+  git checkout develop
+  git branch -D ${cur_branch}
 }
 
-function run_tests() {
-  if [[ $(git config --get remote.origin.url) == *"android"* ]]; then
-    run_tests_android $*
-  else
-    echo "Tests not yet supported for non-Android"
-  fi
-}
-
-function run_lint_android() {
-  echo -n "Running linter... "
-
-  pushd android/Blockly/ >& /dev/null
-
-  if ! ./gradlew check; then
-    echo "FAILED - ABORTING"
-    popd >& /dev/null
+#######################################
+# Clones fork.
+# Globals:
+#   BLOCKLY_INIT
+#   BLOCKLY_USER
+#   BLOCKLY_ROOT
+# Arguments:
+#   None
+#######################################
+clone_fork() {
+  if [[ "${BLOCKLY_INIT}" != true ]]; then
+    err "Must run \"bgit setup\" before updating your web fork."
     exit 1
   fi
 
-  echo "SUCCESS"
-  popd >& /dev/null
+  fork_repo="https://github.com/${BLOCKLY_USER}/blockly"
+
+  fork_local_dir="${BLOCKLY_ROOT}/web-${BLOCKLY_USER}"
+  if [ -d "${fork_local_dir}" ]; then
+    err "webfork directory already exists at ${fork_local_dir}. Aborting."
+    exit 1
+  fi
+  git clone "${fork_repo}" "${fork_local_dir}"
+
+  if [ ! -d "${fork_local_dir}" ]; then
+    err "Failed to clone repo. Ensure you have a fork of blockly on your GitHub account."
+    exit 1
+  fi
+
+  cd "${fork_local_dir}"
+  git remote add -t master -t develop upstream "https://github.com/google/blockly"
 }
 
-function run_lint() {
-  if [[ $(git config --get remote.origin.url) == *"android"* ]]; then
-    run_lint_android $*
-  else
-    echo "Lint not yet supported for non-Android"
-  fi
-}
 
-function clone_fork() {
-  if [ "$BLOCKLY_INIT" != true ]; then
-    echo "Must run envsetup.sh before trying to clone your web fork."
-    return
-  fi
-
-  fork_repo_base="https://github.com/$BLOCKLY_USER/blockly"
-  fork_repo_ext=""
-  fork_project="$1"
-
-  if [ "$fork_project" = "" ]; then
-    echo "Must specify one of 'web', 'android', 'ios', or 'devtools' to clone a fork of."
-    return;
-  elif [ "$fork_project" = "android" ]; then
-    fork_repo_ext="-android"
-  elif [ "$fork_project" = "ios" ]; then
-    fork_repo_ext="-ios"
-  elif [ "$fork_project" = "devtools" ]; then
-    fork_repo_ext="-devtools"
-  elif [ "$fork_project" != "web" ]; then
-    # 'web' is a valid value, but we don't do anything for it
-    # which is why we just check it at the end.
-    echo "Must specify one of 'web', 'android', 'ios', or 'devtools' to clone a fork of."
-    return;
-  fi
-
-  fork_repo="$fork_repo_base$fork_repo_ext"
-  fork_local_dir="$BLOCKLY_ROOT/${fork_project}-$BLOCKLY_USER"
-  if [ -d "$fork_local_dir" ]; then
-    echo "webfork directory already exists at $fork_local_dir. Aborting."
-    return
-  fi
-  git clone "$fork_repo" "$fork_local_dir"
-
-  if [ ! -d "$fork_local_dir" ]; then
-    echo "Failed to clone repo. Ensure you have a fork of blockly on your GitHub account."
-    return
-  fi
-
-  cd "$fork_local_dir"
-  git remote add -t master -t develop upstream "https://github.com/google/blockly$fork_repo_ext"
-}
-
+#######################################
 # Verifies that you are currently in a forked git project with
 # no uncommitted changes
+# Globals:
+#   BLOCKLY_INIT
+#   BLOCKLY_USER
+# Arguments:
+#   None
+#######################################
 function verify_fork() {
-  if [ "$BLOCKLY_INIT" != true ]; then
-    echo "Must run envsetup.sh before updating your web fork."
-    return 1
+  if [[ "${BLOCKLY_INIT}" != true ]]; then
+    err "Must run \"bgit setup\" before updating your web fork."
+    exit 1
   fi
 
   # Check that we're in a forked repo
-  # TODO: Allow user to change 'origin' and $BLOCKLY_USER to something else
   if [ $(git remote -v | grep -i origin.*$BLOCKLY_USER | wc -l) = "0" ]; then
-    echo "bgit fupdate must be run from a git project with your fork as origin."
-    return 1
+    err "bgit fupdate or fbranch must be run from a git project with your fork as origin."
+    exit 1
   fi
 
   # Check that google is the upstream repo
   if [ $(git remote -v | grep -i upstream.*google | wc -l) = "0" ]; then
-    echo "google's project must be configured as upstream. Did you use 'bgit fork' to clone the repo?"
-    return 1
+    err "google's project must be configured as upstream. Did you use 'bgit fclone' to clone the repo?"
+    exit 1
   fi
 
   # Check that there's nothing to commit that will block checkouts
   if [ $(git status | grep -i "working tree clean" | wc -l) = "0" ]; then
-    echo "You have uncommited changes. Please commit or revert your changes before updating."
-    return 1
+    err "You have uncommited changes. Please commit or revert your changes before updating."
+    exit 1
   fi
 
-  #ensure there's a develop and master branch locally
+  # Ensure there's a develop and master branch locally
   if [ $(git branch | grep " develop$" | wc -l) = "0" ]; then
     git branch -f develop remotes/origin/develop
   fi
@@ -192,119 +231,140 @@ function verify_fork() {
     git branch -f master remotes/origin/master
   fi
 
-  return 0
+  success "Verified fork"
 }
 
-#
-function update_fork() {
+#######################################
+# Updates fork.
+# Globals:
+#   BLOCKLY_INIT
+#   BLOCKLY_USER
+# Arguments:
+#   Optional: name of additional branch to update.
+#######################################
+update_fork() {
   verify_fork
-  retval=$?
-
-  if [ $retval != 0 ]; then
-    return
-  fi
 
   git fetch upstream
 
   git checkout master
   git pull upstream master
   git push origin HEAD:master
+  inf "Updated master"
 
   git checkout develop
   git pull upstream develop
   git push origin HEAD:develop
+  inf "Updated develop"
+
+  local branch=$1
+  if [[ ! -z "${branch}" ]]; then
+    git checkout ${branch}
+    git pull upstream ${branch}
+    git push origin HEAD:${branch}
+    inf "Updated ${branch}"
+  fi
+
 }
 
-function branch_fork() {
+#######################################
+# Creates a new branch off of develop or specified branch.
+# Globals:
+#   BLOCKLY_INIT
+#   BLOCKLY_USER
+# Arguments:
+#   The name of the new branch.
+#   Optional: name of base branch
+#######################################
+branch_fork() {
+  local new_branch=$1
+  if [[ -z "${new_branch}" ]]; then
+    err "Missing branch name. Syntax is \"bgit fbranch <branch_name>\""
+    exit 1
+  fi
+  if [[ "${new_branch}" == "master" ]]; then
+    err "Cannot create branch named master"
+    exit 1
+  fi
+  if [[ "${new_branch}" == "develop" ]]; then
+    err "Cannot create branch named develop"
+    exit 1
+  fi
+
+  local base_branch=$2
+  if [[ -z "${base_branch}" ]]; then
+    base_branch='develop'
+  fi
+
   verify_fork
-  retval=$?
 
-  if [ $retval != 0 ]; then
-    return
-  fi
+  git branch -f "${new_branch}" remotes/origin/${base_branch}
+  git checkout "${new_branch}"
 
-  newbranch="$1"
-  if [ "$newbranch" = "" ]; then
-    echo "Missing branch name. Syntax is 'bgit webbranch <branchname>'"
-    return;
-  fi
-
-  git branch -f "$newbranch" remotes/origin/develop
-  git checkout "$newbranch"
+  inf "Created ${new_branch} off of remotes/origin/${base_branch}"
 }
 
-function push {
-  if [ "$BLOCKLY_INIT" != true ]; then
-    echo "Must run envsetup.sh before pushing commits!"
-    return
-  fi
 
+#######################################
+# Pushes local changes to remote branch.
+# Arguments:
+#   Whether to force push.
+#######################################
+push() {
   if [[ $(git config --get remote.google.url) == *"google/blockly" ]]; then
-    echo "You are on the public Blockly project. Do not push here."
-    return
+    err "You are on the public Blockly project. Do not push here."
+    exit 1
   fi
 
   local args=""
-  local notest=""
 
-  while [ "$1" != "" ]; do
+  while [[ "$1" != "" ]]; do
     case $1 in
       -f | --force )  args="$args $1";;
-      --notest )      notest="true";;
-      * )             echo "unknown arg $1";;
+      * )             warn "unknown arg $1";;
     esac
     shift
   done
-
-  if [ -z $notest ]; then
-    run_tests
-  fi
 
   local branch="$(git rev-parse --abbrev-ref HEAD)"
-  local rem_branch="$BLOCKLY_USER-$branch"
-  git push$args origin "$branch:$rem_branch"
-  echo "Pushed change to $rem_branch. Add a reviewer on the website."
+  git push$args origin "${branch}"
+  success "Pushed change to ${branch}. Add a reviewer on the website."
 }
 
-#NOTE: pull will only work after you've created the branch with push
-function pull {
-  if [ "$BLOCKLY_INIT" != true ]; then
-    echo "Must run envsetup.sh before pulling!"
-    return
+
+#######################################
+# Resets the local branch to upstream state.
+# Arguments:
+#   The branch to reset to upstream state.
+#######################################
+reset_fork_branch(){
+  local branch=$1
+  if [[ -z "${branch}" ]]; then
+    err "Missing branch name. Syntax is \"bgit freset <branch_name>\""
+    exit 1
   fi
-  repo sync .
+
+  if ! git checkout "${branch}"; then
+    err "Unable to checkout ${branch}. Are you sure there isn't a typo?"
+    exit 1
+  fi
+  git pull upstream "${branch}"
+  git reset --hard "upstream/${branch}"
+  success "Reset to upstream state. To reset origin to upstream state run \"bgit push -f\""
 }
 
-#Rebase the current branch on to master
-function rebase {
-  # Update the master branch
-  # git pull origin master:master
-
-  local args=""
-  while [ "$1" != "" ]; do
-    case $1 in
-      -i | --interactive )  args="$args $1";;
-      * )                   echo "unknown arg $1";;
-    esac
-    shift
-  done
-
-  # Rebase the current branch with args
-  repo rebase$args
-}
-
+#######################################
+# Prints usage information for bgit command. 
+#######################################
 function help {
   echo "Available commands are:"
-  echo "bgit start <branch> # Start a new local branch."
+  echo "source ./tools/bgit setup [-a --append] # Setup environment variables for bgit tool. (Must be run in root directory)."
   echo "bgit close # Delete the current branch on GitHub and locally"
-  echo "bgit push # Push the current branch to GitHub. Creates a remote branch if needed. Add '--notest' to skip pre-push tests."
-  echo "bgit pull # Pull any changes to the current branch from GitHub"
-  echo "bgit rebase # Rebase your current branch on to master"
-  echo "bgit test # Runs android tests. Non-android tests are not supported yet."
-  echo "bgit lint # Runs android linter. Non-android linting is not supported yet."
-  echo "bgit fclone <project> # Clones an existing fork of the web project on your account. Project must be one of 'web', 'android', 'ios', 'devtools'"
-  echo "bgit fupdate # Updates the master and develop branches for the current project. Must be in a forked git repo."
-  echo "bgit fbranch <branchname> # Create a new branch in your forked repo based off develop."
+  echo "bgit push [-f --force] # Push the current branch to GitHub. Creates a remote branch if needed."
+  echo "bgit fclone # Clones an existing fork of Blockly on your account."
+  echo "bgit fbranch <new_branch_name> [base_branch_name='develop']# Create a new branch in your forked repo based off specified base branch."
+  echo "bgit fupdate # Updates the master and pond-multi branches for the current project. Must be in a forked git repo."
+  echo "bgit freset <branch_name> # Force resets local branch to match upstream."
 }
 
 if [ "$1" = "" ]; then
@@ -313,16 +373,13 @@ else
   command=$1
   shift
   case $command in
-    start )   	start $@;;
-    close )   	close $@;;
-    push )    	push $@;;
-    pull )    	pull $@;;
-    rebase )  	rebase $@;;
-    test)     	run_tests $@;;
-    lint)     	run_lint $@;;
-    fclone)  	clone_fork $@;;
-    fupdate)	update_fork $@;;
-    fbranch)  	branch_fork $@;;
+    setup )     source_setup $@;;
+    close )     close $@;;
+    push )      push $@;;
+    fclone)     clone_fork $@;;
+    fupdate)    update_fork $@;;
+    fbranch)    branch_fork $@;;
+    freset)     reset_fork_branch $@;;
     *)        	help;;
   esac
 fi
