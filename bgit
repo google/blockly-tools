@@ -151,8 +151,13 @@ close() {
     esac
   done
 
+  local return_branch='develop'
+  if [ $(git branch | grep " develop$" | wc -l) = "0" ]; then
+    base_branch='master'
+  fi
+
   git push origin :${cur_branch}
-  git checkout develop
+  git checkout ${return_branch}
   git branch -D ${cur_branch}
 }
 
