@@ -201,8 +201,14 @@ clone_fork() {
     exit 1
   fi
 
+  local track_branch_flags="-t master"
+  if [ $(git ls-remote --heads "https://github.com/google/blockly${fork_repo_ext}" develop | wc -l) = "1" ]; then
+    track_branch_flags="${track_branch_flags} -t develop"
+  fi
+
+
   cd "${fork_local_dir}"
-  git remote add -t master -t develop upstream "https://github.com/google/blockly${fork_repo_ext}"
+  git remote add ${track_branch_flags} upstream "https://github.com/google/blockly${fork_repo_ext}"
 }
 
 
@@ -239,12 +245,15 @@ function verify_fork() {
     exit 1
   fi
 
-  # Ensure there's a develop and master branch locally
-  if [ $(git branch | grep " develop$" | wc -l) = "0" ]; then
-    git branch -f develop remotes/origin/develop
-  fi
+  # Ensure there's a master and develop branch locally
   if [ $(git branch | grep " master$" | wc -l) = "0" ]; then
     git branch -f master remotes/origin/master
+  fi
+  if [ $(git branch | grep " develop$" | wc -l) = "0" ]; then
+    # Add develop if it exists on origin.
+    if [ $(git ls-remote --heads origin develop | wc -l) = "1" ]; then
+      git branch -f develop remotes/origin/develop
+    fi
   fi
 
   success "Verified fork"
@@ -268,10 +277,14 @@ update_fork() {
   git push origin HEAD:master
   inf "Updated master"
 
-  git checkout develop
-  git pull upstream develop
-  git push origin HEAD:develop
-  inf "Updated develop"
+  # Update develop if it exists
+  if [ $(git branch | grep " develop$" | wc -l) = "1" ]; then
+    echo 'sdfsd'
+    git checkout develop
+    git pull upstream develop
+    git push origin HEAD:develop
+    inf "Updated develop"
+  fi
 
   local branch=$1
   if [[ ! -z "${branch}" ]]; then
@@ -284,7 +297,7 @@ update_fork() {
 }
 
 #######################################
-# Creates a new branch off of develop or specified branch.
+# Creates a new branch off of specified branch or develop (or master if develop does not exists).
 # Globals:
 #   BLOCKLY_INIT
 #   BLOCKLY_USER
@@ -309,7 +322,11 @@ branch_fork() {
 
   local base_branch=$2
   if [[ -z "${base_branch}" ]]; then
-    base_branch='develop'
+    if [ $(git branch | grep " develop$" | wc -l) = "1" ]; then
+      base_branch='develop'
+    else
+      base_branch='master'
+    fi
   fi
 
   verify_fork
@@ -378,7 +395,7 @@ function help {
   echo "bgit close # Delete the current branch on GitHub and locally"
   echo "bgit push [-f --force] # Push the current branch to GitHub. Creates a remote branch if needed."
   echo "bgit fclone [project=web] # Clones an existing fork of Blockly on your account. Project must be one of 'web', 'samples', or 'devtools'"
-  echo "bgit fbranch <new_branch_name> [base_branch_name='develop']# Create a new branch in your forked repo based off specified base branch."
+  echo "bgit fbranch <new_branch_name> [base_branch_name='develop|master'] # Create a new branch in your forked repo based off specified base branch."
   echo "bgit fupdate # Updates the master and pond-multi branches for the current project. Must be in a forked git repo."
   echo "bgit freset <branch_name> # Force resets local branch to match upstream."
 }
