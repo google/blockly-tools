@@ -153,8 +153,9 @@ close() {
 
   local return_branch='develop'
   if [ $(git branch | grep " develop$" | wc -l) = "0" ]; then
-    base_branch='master'
+    return_branch='master'
   fi
+
 
   git push origin :${cur_branch}
   git checkout ${return_branch}
