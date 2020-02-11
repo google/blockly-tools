@@ -163,7 +163,7 @@ close() {
 #   BLOCKLY_USER
 #   BLOCKLY_ROOT
 # Arguments:
-#   None
+#   Optional: Project to clone. Either 'web', 'samples" or 'devtools' ('web' by default).
 #######################################
 clone_fork() {
   if [[ "${BLOCKLY_INIT}" != true ]]; then
@@ -171,9 +171,25 @@ clone_fork() {
     exit 1
   fi
 
-  fork_repo="https://github.com/${BLOCKLY_USER}/blockly"
+  local fork_repo_base="https://github.com/${BLOCKLY_USER}/blockly"
+  local fork_project="$1"
 
-  fork_local_dir="${BLOCKLY_ROOT}/web-${BLOCKLY_USER}"
+  if [[ "$fork_project" != "" ]]; then
+    if [ "$fork_project" = "samples" ]; then
+      fork_repo_ext="-samples"
+    elif [ "$fork_project" = "devtools" ]; then
+      fork_repo_ext="-devtools"
+    elif [ "$fork_project" != "web" ]; then
+      # 'web' is a valid value, but we don't do anything for it
+      # which is why we just check it at the end.
+      err "Must specify one of 'web', 'samples', or 'devtools' to clone a fork of."
+      exit 1;
+    fi
+  fi
+
+
+  local fork_repo="$fork_repo_base$fork_repo_ext"
+  local fork_local_dir="${BLOCKLY_ROOT}/${fork_project}-${BLOCKLY_USER}"
   if [ -d "${fork_local_dir}" ]; then
     err "webfork directory already exists at ${fork_local_dir}. Aborting."
     exit 1
@@ -186,7 +202,7 @@ clone_fork() {
   fi
 
   cd "${fork_local_dir}"
-  git remote add -t master -t develop upstream "https://github.com/google/blockly"
+  git remote add -t master -t develop upstream "https://github.com/google/blockly${fork_repo_ext}"
 }
 
 
@@ -361,7 +377,7 @@ function help {
   echo "source ./tools/bgit setup [-a --append] # Setup environment variables for bgit tool. (Must be run in root directory)."
   echo "bgit close # Delete the current branch on GitHub and locally"
   echo "bgit push [-f --force] # Push the current branch to GitHub. Creates a remote branch if needed."
-  echo "bgit fclone # Clones an existing fork of Blockly on your account."
+  echo "bgit fclone [project=web] # Clones an existing fork of Blockly on your account. Project must be one of 'web', 'samples', or 'devtools'"
   echo "bgit fbranch <new_branch_name> [base_branch_name='develop']# Create a new branch in your forked repo based off specified base branch."
   echo "bgit fupdate # Updates the master and pond-multi branches for the current project. Must be in a forked git repo."
   echo "bgit freset <branch_name> # Force resets local branch to match upstream."
