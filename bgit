@@ -325,6 +325,10 @@ branch_fork() {
     err "Cannot create branch named develop"
     exit 1
   fi
+  if [ $(git branch | grep " ${new_branch}$" | wc -l) = "1" ]; then
+    err "Branch '${new_branch}' already exists"
+    exit 1
+  fi
 
   local base_branch=$2
   if [[ -z "${base_branch}" ]]; then
